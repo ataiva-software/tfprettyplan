@@ -37,7 +37,13 @@ func main() {
 		planFile    string
 		noColor     bool
 		showVersion bool
-		version     = "0.1.0" // Hardcoded for now, could be set during build
+	)
+
+	// Version information - will be set during build using ldflags
+	var (
+		version = "dev"
+		commit  = "none"
+		date    = "unknown"
 	)
 
 	flag.StringVar(&planFile, "file", "", "Path to Terraform plan JSON file")
@@ -63,7 +69,7 @@ func main() {
 
 	// Show version and exit if requested
 	if showVersion {
-		fmt.Printf("TFPrettyPlan v%s\n", version)
+		fmt.Printf("TFPrettyPlan v%s (%s built on %s)\n", version, commit, date)
 		os.Exit(0)
 	}
 
