@@ -56,7 +56,7 @@ jobs:
       - name: Install semantic-release dependencies
         if: steps.check-release.outputs.should_release == 'true'
         run: |
-          npm install -g semantic-release @semantic-release/git @semantic-release/github @semantic-release/changelog @semantic-release/exec conventional-changelog-cli
+          npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator conventional-changelog-cli
 
       - name: Determine version
         id: set-version
@@ -88,10 +88,23 @@ jobs:
             
             VERSION="v$MAJOR.$MINOR.$PATCH"
           else
+            # Create a minimal semantic-release config for Go projects (no npm)
+            echo '{
+              "plugins": [
+                "@semantic-release/commit-analyzer",
+                "@semantic-release/release-notes-generator"
+              ],
+              "npm": false,
+              "ci": false
+            }' > .releaserc.json
+            
             # Automatic semantic versioning based on conventional commits
-            npx semantic-release --dry-run
-            VERSION=$(npx semantic-release --dry-run | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.1")
+            # Pass GITHUB_TOKEN to avoid authentication errors
+            VERSION=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" npx semantic-release --dry-run --no-ci | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.1")
             VERSION="v$VERSION"
+            
+            # Remove temporary config file
+            rm -f .releaserc.json
           fi
           
           echo "Determined version: $VERSION"
