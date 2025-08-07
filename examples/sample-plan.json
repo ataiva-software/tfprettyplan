@@ -1,0 +1,171 @@
+{
+  "format_version": "1.0",
+  "terraform_version": "1.5.0",
+  "variables": {
+    "environment": {
+      "value": "dev"
+    },
+    "region": {
+      "value": "us-west-2"
+    }
+  },
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_instance.example",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "example",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "ami": "ami-0c55b159cbfafe1f0",
+            "instance_type": "t2.micro",
+            "tags": {
+              "Name": "Example Instance",
+              "Environment": "dev"
+            }
+          }
+        },
+        {
+          "address": "aws_s3_bucket.logs",
+          "mode": "managed",
+          "type": "aws_s3_bucket",
+          "name": "logs",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 0,
+          "values": {
+            "acl": "public-read",
+            "bucket": "example-logs-bucket",
+            "force_destroy": true,
+            "tags": {
+              "Name": "Logs Bucket",
+              "Environment": "dev"
+            }
+          }
+        },
+        {
+          "address": "aws_security_group.allow_ssh",
+          "mode": "managed",
+          "type": "aws_security_group",
+          "name": "allow_ssh",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "description": "Allow SSH inbound traffic",
+            "name": "allow_ssh",
+            "ingress": [
+              {
+                "description": "SSH from VPC",
+                "from_port": 22,
+                "to_port": 22,
+                "protocol": "tcp",
+                "cidr_blocks": ["10.0.0.0/16"]
+              }
+            ],
+            "tags": {
+              "Name": "allow_ssh"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_instance.example",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "example",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "ami": "ami-0c55b159cbfafe1f0",
+          "instance_type": "t2.micro",
+          "tags": {
+            "Name": "Example Instance",
+            "Environment": "dev"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_s3_bucket.logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "acl": "private",
+          "bucket": "example-logs-bucket",
+          "force_destroy": false,
+          "tags": {
+            "Name": "Log Bucket",
+            "Environment": "dev"
+          }
+        },
+        "after": {
+          "acl": "public-read",
+          "bucket": "example-logs-bucket",
+          "force_destroy": true,
+          "tags": {
+            "Name": "Logs Bucket",
+            "Environment": "dev"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_security_group.allow_ssh",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "allow_ssh",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "description": "Allow SSH inbound traffic",
+          "name": "allow_ssh",
+          "ingress": [
+            {
+              "description": "SSH from VPC",
+              "from_port": 22,
+              "to_port": 22,
+              "protocol": "tcp",
+              "cidr_blocks": ["10.0.0.0/16"]
+            }
+          ],
+          "tags": {
+            "Name": "allow_ssh"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_iam_role.lambda",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "lambda",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["delete"],
+        "before": {
+          "name": "lambda-execution-role",
+          "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}",
+          "tags": {
+            "Name": "Lambda Execution Role",
+            "Environment": "dev"
+          }
+        },
+        "after": null
+      }
+    }
+  ],
+  "configuration": {}
+}
