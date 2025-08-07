@@ -131,9 +131,11 @@ jobs:
           # Generate changelog from git history
           CHANGELOG=$(npx conventional-changelog -p angular -r 2)
           
-          # Output the changelog directly without URL encoding
+          # Output the changelog using multiline delimiter syntax for GitHub Actions
           
-          echo "changelog=$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
   build:
     needs: [setup, generate-changelog]
