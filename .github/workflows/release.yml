@@ -214,8 +214,19 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git tag -a ${{ needs.setup.outputs.version }} -m "Release ${{ needs.setup.outputs.version }}"
-          git push origin ${{ needs.setup.outputs.version }}
+          
+          # Fetch all tags from remote
+          git fetch --tags
+          
+          # Check if tag already exists in remote
+          if git ls-remote --tags origin | grep -q "refs/tags/${{ needs.setup.outputs.version }}$"; then
+            echo "Tag ${{ needs.setup.outputs.version }} already exists in remote. Skipping tag creation."
+          else
+            echo "Creating and pushing tag ${{ needs.setup.outputs.version }}..."
+            git tag -a ${{ needs.setup.outputs.version }} -m "Release ${{ needs.setup.outputs.version }}"
+            git push origin ${{ needs.setup.outputs.version }}
+            echo "Tag ${{ needs.setup.outputs.version }} created and pushed successfully."
+          fi
           
       - name: Update release documentation
         run: |
