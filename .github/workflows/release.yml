@@ -131,10 +131,7 @@ jobs:
           # Generate changelog from git history
           CHANGELOG=$(npx conventional-changelog -p angular -r 2)
           
-          # Escape newlines and special characters for GitHub Actions
-          CHANGELOG="${CHANGELOG//'%'/'%25'}"
-          CHANGELOG="${CHANGELOG//$'\n'/'%0A'}"
-          CHANGELOG="${CHANGELOG//$'\r'/'%0D'}"
+          # Output the changelog directly without URL encoding
           
           echo "changelog=$CHANGELOG" >> $GITHUB_OUTPUT
 
@@ -163,7 +160,7 @@ jobs:
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean --snapshot
+          args: release --clean
         env:
           VERSION: ${{ needs.setup.outputs.version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
