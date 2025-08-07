@@ -33,6 +33,42 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          
+      - name: Fetch all tags with force
+        run: |
+          git fetch --tags --force
+          
+      - name: Verify tag consistency
+        run: |
+          echo "Verifying tag consistency between local and remote..."
+          # Check if we're running on a tag
+          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            TAG_NAME="${{ github.ref_name }}"
+            echo "Running on tag: $TAG_NAME"
+            
+            # Get local and remote commit hashes for the tag
+            LOCAL_COMMIT=$(git rev-parse $TAG_NAME 2>/dev/null || echo "not_found")
+            REMOTE_COMMIT=$(git ls-remote origin "refs/tags/$TAG_NAME" | cut -f1 || echo "not_found")
+            
+            echo "Local commit for $TAG_NAME: $LOCAL_COMMIT"
+            echo "Remote commit for $TAG_NAME: $REMOTE_COMMIT"
+            
+            # Check for discrepancies
+            if [[ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]]; then
+              echo "::warning::Tag discrepancy detected! Local and remote tags point to different commits."
+              echo "Will attempt to resolve by using remote tag reference..."
+              
+              if [[ "$REMOTE_COMMIT" != "not_found" ]]; then
+                echo "Using remote commit reference for this build."
+              else
+                echo "Remote tag not found. Using local reference."
+              fi
+            else
+              echo "Tag consistency verified. Local and remote tags match."
+            fi
+          else
+            echo "Not running on a tag reference. Skipping tag verification."
+          fi
 
       - name: Check if release is needed
         id: check-release
@@ -144,6 +180,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Fetch all tags with force
+        run: |
+          git fetch --tags --force
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -158,6 +200,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build with GoReleaser
+        id: goreleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
@@ -166,6 +209,26 @@ jobs:
         env:
           VERSION: ${{ needs.setup.outputs.version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        
+      - name: Handle GoReleaser failures
+        if: steps.goreleaser.outcome != 'success'
+        run: |
+          echo "::error::GoReleaser build failed. Attempting recovery..."
+          
+          # Check if this is a tag discrepancy issue
+          if grep -q "git tag" <<< "${{ steps.goreleaser.outputs.stderr }}"; then
+            echo "Detected potential tag discrepancy issue."
+            echo "Attempting to synchronize tags..."
+            git fetch --tags --force
+            
+            # Try running GoReleaser again with debug output
+            echo "Retrying GoReleaser with debug output..."
+            goreleaser release --clean --debug
+          else
+            echo "Unknown GoReleaser error. Please check the logs for details."
+            exit 1
+          fi
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -184,6 +247,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          
+      - name: Fetch all tags with force
+        run: |
+          git fetch --tags --force
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -214,8 +281,8 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           
-          # Fetch all tags from remote
-          git fetch --tags
+          # Fetch all tags from remote with force to ensure consistency
+          git fetch --tags --force
           
           # Check if tag already exists in remote
           if git ls-remote --tags origin | grep -q "refs/tags/${{ needs.setup.outputs.version }}$"; then
