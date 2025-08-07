@@ -1,14 +1,115 @@
+# TFPrettyPlan
 
-+--------+-------+
-| ACTION | COUNT |
-+--------+-------+
-| Create |     2 |
-| Update |     1 |
-| Delete |     1 |
-| Total  |     4 |
-+--------+-------+
+TFPrettyPlan is a command-line tool that renders Terraform plan files in a more
+human-readable format. It parses Terraform plan JSON files and displays the
+changes in a nicely formatted ASCII table, highlighting resources that will be
+created, updated, or deleted.
 
-Resources to Create
+## Features
+
+- Parses Terraform plan JSON files
+- Displays a summary of resources to be created, updated, or deleted
+- Shows detailed information about each resource change
+- Highlights changes with color (can be disabled)
+- Supports reading from files or standard input
+
+## Installation
+
+### Download Pre-built Binaries
+
+The easiest way to install TFPrettyPlan is to download a pre-built binary from the [GitHub Releases page](https://github.com/ao/tfprettyplan/releases).
+
+Available for:
+
+- Linux (amd64, arm64)
+- macOS (amd64, arm64)
+- Windows (amd64)
+
+```bash
+# Example for Linux amd64
+curl -L https://github.com/ao/tfprettyplan/releases/latest/download/tfprettyplan_Linux_x86_64.tar.gz | tar xz
+sudo mv tfprettyplan /usr/local/bin/
+```
+
+```bash
+# Example for macOS
+curl -L https://github.com/ao/tfprettyplan/releases/latest/download/tfprettyplan_Darwin_x86_64.tar.gz | tar xz
+sudo mv tfprettyplan /usr/local/bin/
+```
+
+For Windows, download the ZIP file from the releases page and extract it to a location in your PATH.
+
+### Using Go
+
+If you have Go installed, you can install TFPrettyPlan directly:
+
+```bash
+go install github.com/ao/tfprettyplan/cmd/tfprettyplan@latest
+```
+
+### From Source
+
+```bash
+git clone https://github.com/ao/tfprettyplan.git
+cd tfprettyplan
+go build -o tfprettyplan ./cmd/tfprettyplan
+```
+
+## Usage
+
+TFPrettyPlan can read Terraform plan files in JSON format. You can provide the plan file as an argument or pipe the JSON data to the tool.
+
+### Basic Usage
+
+```bash
+# Read from a file
+tfprettyplan plan.json
+
+# Using the -file flag
+tfprettyplan -file plan.json
+
+# Pipe from terraform show
+terraform show -json plan.tfplan | tfprettyplan
+```
+
+### Flags
+
+- `-file, -f`: Path to Terraform plan JSON file
+- `-no-color`: Disable color output
+- `-version, -v`: Show version information
+
+## Example
+
+To use TFPrettyPlan with a Terraform plan:
+
+1. Generate a Terraform plan file:
+
+   ```bash
+   terraform plan -out=plan.tfplan
+   ```
+
+2. Convert the plan to JSON:
+
+   ```bash
+   terraform show -json plan.tfplan > plan.json
+   ```
+
+3. Use TFPrettyPlan to visualize the plan:
+
+   ```bash
+   tfprettyplan plan.json
+   ```
+
+   Or in a single command:
+
+   ```bash
+   terraform show -json plan.tfplan | tfprettyplan
+   ```
+
+## Sample Output
+
+```
+Terraform Plan Summary
 =====================
 
 +--------+-------+
