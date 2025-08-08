@@ -1,197 +1,103 @@
-# GitHub Actions workflow for building, versioning, and releasing tfprettyplan
-name: Build and Release
+name: Auto Build and Release
 
-# Trigger the workflow on:
-# 1. Push to main branch
-# 2. Push of version tags (v*)
-# 3. Manual workflow dispatch with release type selection
 on:
   push:
-    branches: [main]
-    tags:
-      - 'v*'
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: 'Release type (major, minor, patch)'
-        required: true
-        default: 'patch'
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
+    branches: [main]  # Triggers on push to main
 
 jobs:
   setup:
+    name: Determine Version
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.set-version.outputs.version }}
-      should_release: ${{ steps.check-release.outputs.should_release }}
+      version: ${{ steps.version.outputs.version }}
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
-      - name: Fetch all tags with force
-        run: |
-          git fetch --tags --force
-          
-      - name: Verify tag consistency
-        run: |
-          echo "Verifying tag consistency between local and remote..."
-          # Check if we're running on a tag
-          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-            TAG_NAME="${{ github.ref_name }}"
-            echo "Running on tag: $TAG_NAME"
-            
-            # Get local and remote commit hashes for the tag
-            LOCAL_COMMIT=$(git rev-parse $TAG_NAME 2>/dev/null || echo "not_found")
-            REMOTE_COMMIT=$(git ls-remote origin "refs/tags/$TAG_NAME" | cut -f1 || echo "not_found")
-            
-            echo "Local commit for $TAG_NAME: $LOCAL_COMMIT"
-            echo "Remote commit for $TAG_NAME: $REMOTE_COMMIT"
-            
-            # Check for discrepancies
-            if [[ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]]; then
-              echo "::warning::Tag discrepancy detected! Local and remote tags point to different commits."
-              echo "Will attempt to resolve by using remote tag reference..."
-              
-              if [[ "$REMOTE_COMMIT" != "not_found" ]]; then
-                echo "Using remote commit reference for this build."
-              else
-                echo "Remote tag not found. Using local reference."
-              fi
-            else
-              echo "Tag consistency verified. Local and remote tags match."
-            fi
-          else
-            echo "Not running on a tag reference. Skipping tag verification."
-          fi
 
-      - name: Check if release is needed
-        id: check-release
-        run: |
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" && ! "${{ github.event.head_commit.message }}" =~ ^\[skip\ release\] ]]; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "should_release=true" >> $GITHUB_OUTPUT
-          else
-            echo "should_release=false" >> $GITHUB_OUTPUT
-          fi
+      - name: Fetch all tags
+        run: git fetch --tags
 
-      - name: Set up Node.js
-        if: steps.check-release.outputs.should_release == 'true'
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          
-      - name: Install semantic-release dependencies
-        if: steps.check-release.outputs.should_release == 'true'
+      - name: Bump version
+        id: version
         run: |
-          npm install -g semantic-release @semantic-release/commit-analyzer @semantic-release/release-notes-generator conventional-changelog-cli
+          set -e
 
-      - name: Determine version
-        id: set-version
-        if: steps.check-release.outputs.should_release == 'true'
-        run: |
-          if [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
-            VERSION="${{ github.ref_name }}"
-          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Get the latest tag
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-            
-            # Remove the 'v' prefix
-            LATEST_VERSION=${LATEST_TAG#v}
-            
-            # Split the version into components
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$LATEST_VERSION"
-            
-            # Increment version based on input
-            if [[ "${{ github.event.inputs.release_type }}" == "major" ]]; then
-              MAJOR=$((MAJOR + 1))
-              MINOR=0
-              PATCH=0
-            elif [[ "${{ github.event.inputs.release_type }}" == "minor" ]]; then
-              MINOR=$((MINOR + 1))
-              PATCH=0
-            else
-              PATCH=$((PATCH + 1))
-            fi
-            
-            VERSION="v$MAJOR.$MINOR.$PATCH"
-          else
-            # Create a minimal semantic-release config for Go projects (no npm)
-            echo '{
-              "plugins": [
-                "@semantic-release/commit-analyzer",
-                "@semantic-release/release-notes-generator"
-              ],
-              "npm": false,
-              "ci": false
-            }' > .releaserc.json
-            
-            # Automatic semantic versioning based on conventional commits
-            # Pass GITHUB_TOKEN to avoid authentication errors
-            VERSION=$(GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" npx semantic-release --dry-run --no-ci | grep -oP 'The next release version is \K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.1")
-            VERSION="v$VERSION"
-            
-            # Remove temporary config file
-            rm -f .releaserc.json
-          fi
-          
-          echo "Determined version: $VERSION"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          # Get latest tag or default
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $latest_tag"
+
+          # Strip 'v' prefix
+          latest_version="${latest_tag#v}"
+
+          IFS='.' read -r major minor patch <<< "$latest_version"
+
+          # Default bump: patch
+          patch=$((patch + 1))
+          new_version="v$major.$minor.$patch"
+
+          echo "Bumping to $new_version"
+          echo "version=$new_version" >> "$GITHUB_OUTPUT"
 
   generate-changelog:
     needs: setup
-    if: needs.setup.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     outputs:
       changelog: ${{ steps.changelog.outputs.changelog }}
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install conventional-changelog
+        run: npm install -g conventional-changelog-cli
 
       - name: Generate changelog
         id: changelog
         run: |
-          # Install conventional-changelog-cli if not using semantic-release
-          npm install -g conventional-changelog-cli
-          
-          # Generate changelog from git history
-          CHANGELOG=$(npx conventional-changelog -p angular -r 2)
-          
-          # Output the changelog using multiline delimiter syntax for GitHub Actions
-          
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          changelog=$(npx conventional-changelog -p angular -r 2)
 
-  build:
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$changelog" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+  create-tag:
     needs: [setup, generate-changelog]
-    if: needs.setup.outputs.should_release == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ needs.setup.outputs.version }}
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
-      - name: Fetch all tags with force
+
+      - name: Create Git tag
         run: |
-          git fetch --tags --force
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          git tag ${{ needs.setup.outputs.version }}
+          git push origin ${{ needs.setup.outputs.version }}
+
+  release:
+    needs: [setup, generate-changelog, create-tag]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all tags
+        run: git fetch --tags
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.24'
-          check-latest: true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -199,67 +105,15 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build with GoReleaser
-        id: goreleaser
+      - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
-          distribution: goreleaser
           version: latest
           args: release --clean
         env:
-          VERSION: ${{ needs.setup.outputs.version }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
-        
-      - name: Handle GoReleaser failures
-        if: steps.goreleaser.outcome != 'success'
-        run: |
-          echo "::error::GoReleaser build failed. Attempting recovery..."
-          
-          # Check if this is a tag discrepancy issue
-          if grep -q "git tag" <<< "${{ steps.goreleaser.outputs.stderr }}"; then
-            echo "Detected potential tag discrepancy issue."
-            echo "Attempting to synchronize tags..."
-            git fetch --tags --force
-            
-            # Try running GoReleaser again with debug output
-            echo "Retrying GoReleaser with debug output..."
-            goreleaser release --clean --debug
-          else
-            echo "Unknown GoReleaser error. Please check the logs for details."
-            exit 1
-          fi
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: binaries
-          path: dist/*
-          retention-days: 1
-
-  # Final job to create GitHub release with all artifacts
-  release:
-    needs: [setup, generate-changelog, build]
-    runs-on: ubuntu-latest
-    # Only run this job if we should create a release
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          
-      - name: Fetch all tags with force
-        run: |
-          git fetch --tags --force
-
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: binaries
-          path: dist
 
       - name: Create GitHub Release
-        id: create_release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.setup.outputs.version }}
@@ -274,28 +128,3 @@ jobs:
             dist/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create Git tag if it doesn't exist
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Fetch all tags from remote with force to ensure consistency
-          git fetch --tags --force
-          
-          # Check if tag already exists in remote
-          if git ls-remote --tags origin | grep -q "refs/tags/${{ needs.setup.outputs.version }}$"; then
-            echo "Tag ${{ needs.setup.outputs.version }} already exists in remote. Skipping tag creation."
-          else
-            echo "Creating and pushing tag ${{ needs.setup.outputs.version }}..."
-            git tag -a ${{ needs.setup.outputs.version }} -m "Release ${{ needs.setup.outputs.version }}"
-            git push origin ${{ needs.setup.outputs.version }}
-            echo "Tag ${{ needs.setup.outputs.version }} created and pushed successfully."
-          fi
-          
-      - name: Update release documentation
-        run: |
-          echo "Release ${{ needs.setup.outputs.version }} published successfully!"
-          echo "Binary artifacts are available at: https://github.com/${{ github.repository }}/releases/tag/${{ needs.setup.outputs.version }}"
-

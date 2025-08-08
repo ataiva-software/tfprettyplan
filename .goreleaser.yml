@@ -1,5 +1,4 @@
 # .goreleaser.yml
-# Build customization
 project_name: tfprettyplan
 
 before:
@@ -26,7 +25,6 @@ builds:
 
 archives:
   - format: tar.gz
-    # Use zip for Windows
     format_overrides:
       - goos: windows
         format: zip
@@ -74,4 +72,3 @@ brews:
       bin.install "tfprettyplan"
     test: |
       system "#{bin}/tfprettyplan", "-version"
-
