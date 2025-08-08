@@ -1,130 +1,55 @@
-name: Auto Build and Release
+name: Release
 
 on:
   push:
-    branches: [main]  # Triggers on push to main
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
-  setup:
-    name: Determine Version
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Fetch all tags
-        run: git fetch --tags
-
-      - name: Bump version
-        id: version
-        run: |
-          set -e
-
-          # Get latest tag or default
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: $latest_tag"
-
-          # Strip 'v' prefix
-          latest_version="${latest_tag#v}"
-
-          IFS='.' read -r major minor patch <<< "$latest_version"
-
-          # Default bump: patch
-          patch=$((patch + 1))
-          new_version="v$major.$minor.$patch"
-
-          echo "Bumping to $new_version"
-          echo "version=$new_version" >> "$GITHUB_OUTPUT"
-
-  generate-changelog:
-    needs: setup
-    runs-on: ubuntu-latest
-    outputs:
-      changelog: ${{ steps.changelog.outputs.changelog }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install conventional-changelog
-        run: npm install -g conventional-changelog-cli
-
-      - name: Generate changelog
-        id: changelog
-        run: |
-          changelog=$(npx conventional-changelog -p angular -r 2)
-
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$changelog" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
-
-  create-tag:
-    needs: [setup, generate-changelog]
-    runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ needs.setup.outputs.version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Create Git tag
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
-          git tag ${{ needs.setup.outputs.version }}
-          git push origin ${{ needs.setup.outputs.version }}
-
   release:
-    needs: [setup, generate-changelog, create-tag]
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Fetch all tags
-        run: git fetch --tags
 
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.22'
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+      - name: Fetch full history & tags
+        run: |
+          git fetch --prune --unshallow || true
+          git fetch --tags
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Get latest tag and bump patch
+        id: get_tag
+        run: |
+          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $latest_tag"
+          version=${latest_tag#v}
+          IFS='.' read -r major minor patch <<< "$version"
+          patch=$((patch + 1))
+          new_tag="v${major}.${minor}.${patch}"
+          echo "New tag: $new_tag"
+          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
 
-      - name: Run GoReleaser
+      - name: Create new tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag ${{ steps.get_tag.outputs.new_tag }}
+          git push origin ${{ steps.get_tag.outputs.new_tag }}
+
+      - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           version: latest
           args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.setup.outputs.version }}
-          name: Release ${{ needs.setup.outputs.version }}
-          body: ${{ needs.generate-changelog.outputs.changelog }}
-          draft: false
-          prerelease: false
-          files: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/*.deb
-            dist/*.rpm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
