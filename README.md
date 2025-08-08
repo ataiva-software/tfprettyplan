@@ -1,13 +1,6 @@
 <div align="center">
 <img src="./assets/logo_001.png" width="300px">
-<p><strong>
-TFPrettyPlan is a command-line tool that renders Terraform plan files in a more
-human-readable format.
-</strong><p>
-<p><strong>It parses Terraform plan JSON files and displays the
-changes in a nicely formatted ASCII table, highlighting resources that will be
-created, updated, or deleted.
-</strong></p>
+<p>CLI tool that formats Terraform plans into clean, readable tables.</p>
 </div>
 
 ## Features
