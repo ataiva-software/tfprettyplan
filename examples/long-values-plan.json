@@ -1,0 +1,96 @@
+{
+  "format_version": "1.0",
+  "terraform_version": "1.5.0",
+  "variables": {
+    "environment": {
+      "value": "development_environment_with_very_long_name"
+    },
+    "region": {
+      "value": "us-west-2-with-additional-availability-zones-for-high-availability"
+    }
+  },
+  "planned_values": {
+    "root_module": {
+      "resources": [
+        {
+          "address": "aws_instance.example_with_very_long_resource_name_for_testing_truncation",
+          "mode": "managed",
+          "type": "aws_instance",
+          "name": "example_with_very_long_resource_name_for_testing_truncation",
+          "provider_name": "registry.terraform.io/hashicorp/aws",
+          "schema_version": 1,
+          "values": {
+            "ami": "ami-0c55b159cbfafe1f0-with-additional-identifiers-for-testing-long-values",
+            "instance_type": "t2.micro-with-extended-capabilities-for-high-performance-computing",
+            "tags": {
+              "Name": "Example Instance With Very Long Name That Should Be Truncated In Default View",
+              "Environment": "development_environment_with_very_long_name_that_exceeds_standard_column_width",
+              "Project": "Testing Project With Extremely Long Name For Verifying Table Formatting And Truncation Behavior"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.logs_with_very_long_resource_name_for_testing_truncation_behavior",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "logs_with_very_long_resource_name_for_testing_truncation_behavior",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {
+          "acl": "private-with-additional-permissions-for-specific-aws-accounts-and-services",
+          "bucket": "example-logs-bucket-with-very-long-name-for-testing-truncation-in-table-formatting",
+          "force_destroy": false,
+          "tags": {
+            "Name": "Log Bucket With Extremely Long Name That Should Definitely Be Truncated In Default View",
+            "Environment": "development_environment_with_very_long_name_that_exceeds_standard_column_width",
+            "Project": "Testing Project With Extremely Long Name For Verifying Table Formatting And Truncation Behavior"
+          }
+        },
+        "after": {
+          "acl": "public-read-with-additional-permissions-for-specific-aws-accounts-and-services",
+          "bucket": "example-logs-bucket-with-very-long-name-for-testing-truncation-in-table-formatting",
+          "force_destroy": true,
+          "tags": {
+            "Name": "Logs Bucket With Extremely Long Name That Should Definitely Be Truncated In Default View",
+            "Environment": "development_environment_with_very_long_name_that_exceeds_standard_column_width",
+            "Project": "Testing Project With Extremely Long Name For Verifying Table Formatting And Truncation Behavior"
+          }
+        }
+      }
+    },
+    {
+      "address": "aws_security_group.allow_ssh_with_very_long_resource_name_for_testing_truncation",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "allow_ssh_with_very_long_resource_name_for_testing_truncation",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {
+          "description": "Allow SSH inbound traffic with additional security measures and restrictions for production environment",
+          "name": "allow_ssh_with_very_long_name_for_testing_truncation_behavior_in_table_formatting",
+          "ingress": [
+            {
+              "description": "SSH from VPC with specific security groups and network ACLs for enhanced security",
+              "from_port": 22,
+              "to_port": 22,
+              "protocol": "tcp",
+              "cidr_blocks": ["10.0.0.0/16", "192.168.1.0/24", "172.16.0.0/12"]
+            }
+          ],
+          "tags": {
+            "Name": "allow_ssh_with_very_long_name_for_testing_truncation_behavior_in_table_formatting",
+            "Environment": "development_environment_with_very_long_name_that_exceeds_standard_column_width"
+          }
+        }
+      }
+    }
+  ],
+  "configuration": {}
+}

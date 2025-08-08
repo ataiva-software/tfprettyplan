@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/ao/tfprettyplan/pkg/config"
 	"github.com/ao/tfprettyplan/pkg/models"
 	"github.com/fatih/color"
 )
@@ -14,6 +15,8 @@ import (
 // Renderer is responsible for rendering Terraform plan summaries in ASCII format
 type Renderer struct {
 	colorEnabled bool
+	config       *config.Config
+	tableConfig  *config.TableConfig
 }
 
 // Option is a functional option for configuring the renderer
@@ -26,10 +29,23 @@ func WithColor(enabled bool) Option {
 	}
 }
 
+// WithConfig sets the configuration for the renderer
+func WithConfig(cfg *config.Config) Option {
+	return func(r *Renderer) {
+		r.config = cfg
+		r.tableConfig = cfg.GetTableConfig()
+	}
+}
+
 // New creates a new Renderer with the provided options
 func New(opts ...Option) *Renderer {
+	// Create default configuration
+	defaultConfig := config.DefaultConfig()
+
 	r := &Renderer{
 		colorEnabled: true, // Enable color by default
+		config:       defaultConfig,
+		tableConfig:  defaultConfig.GetTableConfig(),
 	}
 
 	for _, opt := range opts {
@@ -51,7 +67,7 @@ func (r *Renderer) renderSummaryTable(w io.Writer, summary *models.PlanSummary) 
 	fmt.Fprintln(w, "=====================")
 	fmt.Fprintln(w)
 
-	// Create a simple table manually since we're having issues with the tablewriter package
+	// Create a simple table manually
 	fmt.Fprintln(w, "+--------+-------+")
 	fmt.Fprintln(w, "| ACTION | COUNT |")
 	fmt.Fprintln(w, "+--------+-------+")
@@ -137,6 +153,67 @@ func (r *Renderer) renderResourceChange(w io.Writer, change *models.ResourceChan
 	fmt.Fprintln(w)
 }
 
+// truncateValue truncates a string value if it's longer than maxWidth
+// Uses smart truncation to preserve important parts of the value
+func (r *Renderer) truncateValue(value string, maxWidth int) string {
+	if len(value) <= maxWidth {
+		return value
+	}
+
+	// If the value is a path-like string with slashes, preserve the beginning and end
+	if strings.Contains(value, "/") {
+		parts := strings.Split(value, "/")
+		if len(parts) > 2 {
+			// Keep first and last part, truncate middle
+			firstPart := parts[0]
+			lastPart := parts[len(parts)-1]
+
+			// Calculate how much space we have for the middle
+			remainingSpace := maxWidth - len(firstPart) - len(lastPart) - 5 // 5 for "/.../"
+
+			if remainingSpace > 0 {
+				// We can show some of the middle parts
+				middleParts := parts[1 : len(parts)-1]
+				middle := ""
+
+				for _, part := range middleParts {
+					if len(middle)+len(part)+1 <= remainingSpace {
+						if middle != "" {
+							middle += "/"
+						}
+						middle += part
+					} else {
+						break
+					}
+				}
+
+				if middle != "" {
+					return firstPart + "/" + middle + "/.../" + lastPart
+				}
+				return firstPart + "/.../" + lastPart
+			}
+		}
+	}
+
+	// For JSON-like values with braces, preserve structure
+	if strings.HasPrefix(value, "{") && strings.HasSuffix(value, "}") {
+		return value[:maxWidth-3] + "...}"
+	}
+
+	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
+		return value[:maxWidth-3] + "...]"
+	}
+
+	// For long strings without special structure, truncate middle
+	if len(value) > maxWidth && maxWidth > 6 {
+		halfWidth := (maxWidth - 3) / 2
+		return value[:halfWidth] + "..." + value[len(value)-halfWidth:]
+	}
+
+	// Default truncation
+	return value[:maxWidth-3] + "..."
+}
+
 // renderAttributeChanges renders a table showing attribute changes for updated resources
 func (r *Renderer) renderAttributeChanges(w io.Writer, change *models.ResourceChange) {
 	// Find attributes that have changed
@@ -169,10 +246,30 @@ func (r *Renderer) renderAttributeChanges(w io.Writer, change *models.ResourceCh
 	}
 	sort.Strings(attrs)
 
-	// Manually create a simple table
-	fmt.Fprintln(w, "  +---------------+------------------+------------------+")
-	fmt.Fprintln(w, "  |   ATTRIBUTE   |    OLD VALUE     |    NEW VALUE     |")
-	fmt.Fprintln(w, "  +---------------+------------------+------------------+")
+	// Create table header with dynamic widths
+	attrWidth := r.tableConfig.MaxAttributeWidth
+	valueWidth := r.tableConfig.MaxValueWidth
+
+	// Calculate total width of the table (for future use)
+	_ = attrWidth + valueWidth*2 + 7 // 7 for borders and padding
+
+	// Create the top border
+	fmt.Fprintf(w, "  +%s+%s+%s+\n",
+		strings.Repeat("-", attrWidth+2),
+		strings.Repeat("-", valueWidth+2),
+		strings.Repeat("-", valueWidth+2))
+
+	// Create the header row
+	fmt.Fprintf(w, "  | %-*s | %-*s | %-*s |\n",
+		attrWidth, "ATTRIBUTE",
+		valueWidth, "OLD VALUE",
+		valueWidth, "NEW VALUE")
+
+	// Create the separator
+	fmt.Fprintf(w, "  +%s+%s+%s+\n",
+		strings.Repeat("-", attrWidth+2),
+		strings.Repeat("-", valueWidth+2),
+		strings.Repeat("-", valueWidth+2))
 
 	// Add rows for each changed attribute
 	for _, attr := range attrs {
@@ -187,17 +284,20 @@ func (r *Renderer) renderAttributeChanges(w io.Writer, change *models.ResourceCh
 		}
 
 		// Truncate values if they're too long
-		if len(oldVal) > 16 {
-			oldVal = oldVal[:13] + "..."
-		}
-		if len(newVal) > 16 {
-			newVal = newVal[:13] + "..."
-		}
+		oldVal = r.truncateValue(oldVal, valueWidth)
+		newVal = r.truncateValue(newVal, valueWidth)
 
-		fmt.Fprintf(w, "  | %-13s | %-16s | %-16s |\n", attr, oldVal, newVal)
+		fmt.Fprintf(w, "  | %-*s | %-*s | %-*s |\n",
+			attrWidth, attr,
+			valueWidth, oldVal,
+			valueWidth, newVal)
 	}
 
-	fmt.Fprintln(w, "  +---------------+------------------+------------------+")
+	// Create the bottom border
+	fmt.Fprintf(w, "  +%s+%s+%s+\n",
+		strings.Repeat("-", attrWidth+2),
+		strings.Repeat("-", valueWidth+2),
+		strings.Repeat("-", valueWidth+2))
 }
 
 // filterByChangeType returns a slice of resource changes filtered by the given change type

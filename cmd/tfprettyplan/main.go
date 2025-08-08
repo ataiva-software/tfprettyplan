@@ -8,9 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ao/tfprettyplan/pkg/config"
 	"github.com/ao/tfprettyplan/pkg/models"
 	"github.com/ao/tfprettyplan/pkg/parser"
 	"github.com/ao/tfprettyplan/pkg/renderer"
+	"github.com/ao/tfprettyplan/pkg/terminal"
 )
 
 // displayProviderError formats and displays Terraform provider errors in a user-friendly way
@@ -19,7 +21,7 @@ func displayProviderError(err error) {
 	fmt.Fprintf(os.Stderr, "===========================\n\n")
 	fmt.Fprintf(os.Stderr, "%v\n\n", err)
 	fmt.Fprintf(os.Stderr, "For more information on resolving provider errors, see: docs/terraform-workflow.md\n\n")
-	
+
 	// Provide specific guidance based on the error
 	if strings.Contains(err.Error(), "plugin schemas") || strings.Contains(err.Error(), "unavailable provider") {
 		fmt.Fprintf(os.Stderr, "Quick Fix: Generate the plan JSON in the same directory as your Terraform configuration:\n\n")
@@ -37,6 +39,9 @@ func main() {
 		planFile    string
 		noColor     bool
 		showVersion bool
+		wide        bool
+		noAutoWidth bool
+		fixedWidth  int
 	)
 
 	// Version information - will be set during build using ldflags
@@ -51,6 +56,10 @@ func main() {
 	flag.BoolVar(&noColor, "no-color", false, "Disable color output")
 	flag.BoolVar(&showVersion, "version", false, "Show version information")
 	flag.BoolVar(&showVersion, "v", false, "Show version information (shorthand)")
+	flag.BoolVar(&wide, "wide", false, "Use wider output format for better readability of long values")
+	flag.BoolVar(&wide, "w", false, "Use wider output format (shorthand)")
+	flag.BoolVar(&noAutoWidth, "no-auto-width", false, "Disable automatic terminal width detection")
+	flag.IntVar(&fixedWidth, "width", 0, "Set a fixed terminal width in characters (overrides auto-detection)")
 
 	// Custom usage message
 	flag.Usage = func() {
@@ -62,6 +71,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  %s plan.json\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "  %s -file=plan.json\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "  %s -wide plan.json\n", filepath.Base(os.Args[0]))
+		fmt.Fprintf(os.Stderr, "  %s -width=120 plan.json\n", filepath.Base(os.Args[0]))
 		fmt.Fprintf(os.Stderr, "  terraform show -json plan.tfplan | %s\n", filepath.Base(os.Args[0]))
 	}
 
@@ -108,9 +119,9 @@ func main() {
 		summary, err = p.ParseFile(planFile)
 		if err != nil {
 			// Check for provider errors and display them more prominently
-			if strings.Contains(err.Error(), "provider error") || 
-			   strings.Contains(err.Error(), "plugin schemas") || 
-			   strings.Contains(err.Error(), "unavailable provider") {
+			if strings.Contains(err.Error(), "provider error") ||
+				strings.Contains(err.Error(), "plugin schemas") ||
+				strings.Contains(err.Error(), "unavailable provider") {
 				displayProviderError(err)
 			} else {
 				fmt.Fprintf(os.Stderr, "Error parsing plan file: %v\n", err)
@@ -121,9 +132,9 @@ func main() {
 		summary, err = p.ParseJSON(planData)
 		if err != nil {
 			// Check for provider errors and display them more prominently
-			if strings.Contains(err.Error(), "provider error") || 
-			   strings.Contains(err.Error(), "plugin schemas") || 
-			   strings.Contains(err.Error(), "unavailable provider") {
+			if strings.Contains(err.Error(), "provider error") ||
+				strings.Contains(err.Error(), "plugin schemas") ||
+				strings.Contains(err.Error(), "unavailable provider") {
 				displayProviderError(err)
 			} else {
 				fmt.Fprintf(os.Stderr, "Error parsing plan JSON: %v\n", err)
@@ -132,8 +143,29 @@ func main() {
 		}
 	}
 
-	// Create a renderer with the appropriate color setting
-	r := renderer.New(renderer.WithColor(!noColor))
+	// Create configuration
+	cfg := config.DefaultConfig()
+	cfg.NoColor = noColor
+
+	// Set output format
+	if wide {
+		cfg.OutputFormat = config.WideFormat
+	}
+
+	// Configure terminal width detection
+	cfg.AutoDetectWidth = !noAutoWidth
+	if fixedWidth > 0 {
+		cfg.MaxWidth = fixedWidth
+		cfg.AutoDetectWidth = false
+	} else if cfg.AutoDetectWidth {
+		cfg.MaxWidth = terminal.GetWidth()
+	}
+
+	// Create a renderer with the configuration
+	r := renderer.New(
+		renderer.WithColor(!cfg.NoColor),
+		renderer.WithConfig(cfg),
+	)
 
 	// Render the plan summary to stdout
 	r.Render(os.Stdout, summary)

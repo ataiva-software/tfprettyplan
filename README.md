@@ -12,6 +12,10 @@ created, updated, or deleted.
 - Shows detailed information about each resource change
 - Highlights changes with color (can be disabled)
 - Supports reading from files or standard input
+- Enhanced table formatting with dynamic column sizing
+- Smart truncation for long values that preserves important parts
+- Multiple output width options to accommodate different content lengths
+- Automatic terminal width detection for optimal display
 
 ## Installation
 
@@ -66,11 +70,30 @@ tfprettyplan -file plan.json
 terraform show -json plan.tfplan | tfprettyplan
 ```
 
+### Formatting Options
+
+```bash
+# Use wider output format for better readability
+tfprettyplan -wide plan.json
+
+# Set a specific terminal width
+tfprettyplan -width 120 plan.json
+
+# Disable automatic width detection
+tfprettyplan -no-auto-width plan.json
+
+# Combine options as needed
+tfprettyplan -wide -no-color plan.json
+```
+
 ### Flags
 
 - `-file, -f`: Path to Terraform plan JSON file
 - `-no-color`: Disable color output
 - `-version, -v`: Show version information
+- `-wide`, `-w`: Use wider output format for better readability of long values
+- `-width`: Set a fixed terminal width (overrides auto-detection)
+- `-no-auto-width`: Disable automatic terminal width detection
 
 ## Example
 
@@ -139,6 +162,54 @@ Resources to Delete
 
 • aws_iam_role.lambda (aws_iam_role)
 ```
+
+## Table Formatting Examples
+
+### Standard Format (Default)
+
+```
+• aws_s3_bucket.logs (aws_s3_bucket)
+  +---------------+------------------+------------------+
+  |   ATTRIBUTE   |    OLD VALUE     |    NEW VALUE     |
+  +---------------+------------------+------------------+
+  | acl           | private          | public-read      |
+  | force_destroy | false            | true             |
+  | tags.Name     | Log Bucket       | Logs Bucket      |
+  +---------------+------------------+------------------+
+```
+
+### Wide Format (-wide)
+
+```
+• aws_s3_bucket.logs (aws_s3_bucket)
+  +---------------+--------------------------------+--------------------------------+
+  |   ATTRIBUTE   |            OLD VALUE           |            NEW VALUE           |
+  +---------------+--------------------------------+--------------------------------+
+  | acl           | private                        | public-read                    |
+  | force_destroy | false                          | true                           |
+  | tags.Name     | Log Bucket with a longer name  | Logs Bucket with details       |
+  | description   | This is a short description... | This is a longer description...|
+  +---------------+--------------------------------+--------------------------------+
+```
+
+### Smart Truncation
+
+For long values, TFPrettyPlan uses smart truncation to preserve important parts:
+
+- **Path-like strings**: Preserves beginning and end parts
+  ```
+  /very/long/path/with/many/nested/directories/file.txt → /very/long/.../file.txt
+  ```
+
+- **JSON-like values**: Preserves structure
+  ```
+  {"key":"value","nested":{"prop":"too long to display fully"}} → {"key":"value","nested":{"prop":"too...}}
+  ```
+
+- **Long strings**: Truncates middle
+  ```
+  This is a very long string that exceeds the column width → This is a...column width
+  ```
 
 ## Releases and Versioning
 
