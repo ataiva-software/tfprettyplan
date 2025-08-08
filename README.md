@@ -15,27 +15,21 @@ created, updated, or deleted.
 
 ## Installation
 
-### Download Pre-built Binaries
+### Install via Script (Recommended)
 
-The easiest way to install TFPrettyPlan is to download a pre-built binary from the [GitHub Releases page](https://github.com/ao/tfprettyplan/releases).
-
-Available for:
-
-- Linux (amd64, arm64)
-- macOS (amd64, arm64)
-- Windows (amd64)
+Run this one-liner to install the latest version for your OS and architecture:
 
 ```bash
-# Example for Linux amd64
-curl -L https://github.com/ao/tfprettyplan/releases/latest/download/tfprettyplan_Linux_x86_64.tar.gz | tar xz
-sudo mv tfprettyplan /usr/local/bin/
+curl -s https://raw.githubusercontent.com/ao/tfprettyplan/main/install.sh | bash
 ```
 
-```bash
-# Example for macOS
-curl -L https://github.com/ao/tfprettyplan/releases/latest/download/tfprettyplan_Darwin_x86_64.tar.gz | tar xz
-sudo mv tfprettyplan /usr/local/bin/
-```
+This script:
+
+- Detects your OS and CPU
+- Fetches the latest release from GitHub
+- Installs tfprettyplan into /usr/local/bin
+
+You can inspect the script [here](https://github.com/ao/tfprettyplan/blob/main/install.sh).
 
 For Windows, download the ZIP file from the releases page and extract it to a location in your PATH.
 
