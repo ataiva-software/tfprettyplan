@@ -220,6 +220,41 @@ TFPrettyPlan uses semantic versioning and automated releases:
 
 You can find all releases on the [GitHub Releases page](https://github.com/ao/tfprettyplan/releases).
 
+## Testing
+
+TFPrettyPlan includes a comprehensive test suite to ensure the reliability and correctness of its functionality.
+
+### Running Tests
+
+To run the tests, use the standard Go testing tools:
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests for a specific package
+go test ./pkg/parser
+go test ./pkg/renderer
+go test ./pkg/config
+go test ./pkg/terminal
+
+# Run tests with verbose output
+go test -v ./...
+
+# Run tests with coverage report
+go test -cover ./...
+
+# Generate a detailed HTML coverage report
+go test -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out -o coverage.html
+```
+
+### Writing Tests
+
+If you're contributing to TFPrettyPlan, please ensure that your changes are covered by tests. Each package has its own test file(s) that follow Go's standard testing conventions.
+
+Test files are named with the `_test.go` suffix and are located in the same directory as the code they test.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -234,6 +269,15 @@ refactor: code refactoring without functionality changes
 ```
 
 This helps with automatic versioning and changelog generation.
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a new branch for your feature or bug fix
+3. Write tests for your changes
+4. Implement your changes
+5. Ensure all tests pass
+6. Submit a pull request
 
 ## License
 
