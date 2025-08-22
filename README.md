@@ -31,7 +31,7 @@ This script:
 - Fetches the latest release from GitHub
 - Installs tfprettyplan into /usr/local/bin
 
-You can inspect the script [here](https://github.com/ao/tfprettyplan/blob/main/install.sh).
+You can inspect the script [here](https://github.com/ataiva-software/tfprettyplan/blob/main/install.sh).
 
 For Windows, download the ZIP file from the releases page and extract it to a location in your PATH.
 
@@ -40,13 +40,13 @@ For Windows, download the ZIP file from the releases page and extract it to a lo
 If you have Go installed, you can install TFPrettyPlan directly:
 
 ```bash
-go install github.com/ao/tfprettyplan/cmd/tfprettyplan@latest
+go install github.com/ataiva-software/tfprettyplan/cmd/tfprettyplan@latest
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/ao/tfprettyplan.git
+git clone https://github.com/ataiva-software/tfprettyplan.git
 cd tfprettyplan
 go build -o tfprettyplan ./cmd/tfprettyplan
 ```
@@ -218,7 +218,7 @@ TFPrettyPlan uses semantic versioning and automated releases:
 - Each release includes pre-built binaries for all supported platforms
 - Release notes are automatically generated from commit messages
 
-You can find all releases on the [GitHub Releases page](https://github.com/ao/tfprettyplan/releases).
+You can find all releases on the [GitHub Releases page](https://github.com/ataiva-software/tfprettyplan/releases).
 
 ## Testing
 
