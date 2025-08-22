@@ -2,7 +2,7 @@
 
 set -e
 
-REPO="ao/tfprettyplan"
+REPO="ataiva-software/tfprettyplan"
 ARCH=$(uname -m)
 OS=$(uname -s)
 
