@@ -22,7 +22,7 @@
 Run this one-liner to install the latest version for your OS and architecture:
 
 ```bash
-curl -s https://raw.githubusercontent.com/ao/tfprettyplan/main/install.sh | bash
+curl -s https://raw.githubusercontent.com/ataiva-software/tfprettyplan/main/install.sh | bash
 ```
 
 This script:
